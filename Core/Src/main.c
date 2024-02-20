@@ -19,6 +19,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
+static int recv_val = 0;
+static int recv_flag = 0;
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -186,6 +189,14 @@ void transmit_string(const char* str)
 	}
 }
 
+
+void USART3_4_IRQHandler(void)
+{
+	recv_val = USART3->RDR;
+	recv_flag = 1;
+	GPIOC->ODR ^= (1<<9);
+}
+
 /**
   * @brief  The application entry point.
   * @retval int
@@ -201,30 +212,71 @@ int main(void)
 	
 	setup_usart();
 	initialize_leds();
+	
+	NVIC_EnableIRQ(USART3_4_IRQn);
 
   while (1)
   {
-		while((USART3->ISR & (1<<5)) != (1<<5)) {}
+		int cmd_text_printed = 0;
+		while (!recv_flag)
+		{
+			if (!cmd_text_printed)
+			{
+				transmit_string("CMD?\n");
+				cmd_text_printed = 1;
+			}
+		}
+		char cmd_1 = recv_val & (1<<1);
+		char cmd_2 = recv_val & (1<<0);
 		
-		char received = USART3->RDR;
-			
-		switch (received)
+		int led = 0;
+		
+		switch (cmd_1)
 		{
 			case 'r':
-				GPIOC->ODR ^= (1<<6);
+				transmit_string("Commanded LED: Red\n");
+				led = 6;
 				break;
 			case 'b':
-				GPIOC->ODR ^= (1<<7);
+				transmit_string("Commanded LED: Blue\n");
+				led = 7;
 				break;
 			case 'o':
-				GPIOC->ODR ^= (1<<8);
+				transmit_string("Commanded LED: Orange\n");
+				led = 8;
 				break;
 			case 'g':
-				GPIOC->ODR ^= (1<<9);
+				transmit_string("Commanded LED: Green\n");
+				led = 9;
 				break;
 			default:
-				transmit_string("Error: Character does not correspond to an LED!\n");
+				transmit_string("Error: First character must correspond to an LED!\n");
 		}
+		
+		if (led != 0)
+		{
+			switch (cmd_2)
+			{
+				case '0':
+					transmit_string("Commanded Action: Off\n");
+					GPIOC->ODR &= ~(1<<led);
+					break;
+				case '1':
+					transmit_string("Commanded Action: On\n");
+					GPIOC->ODR |= (1<<led);
+					break;
+				case '2':
+					transmit_string("Commanded Action: Toggle\n");
+					GPIOC->ODR ^= (1<<led);
+					HAL_Delay(500);
+					GPIOC->ODR ^= (1<<led);
+					break;
+				default:
+					transmit_string("Error: Second character must correspond to a command!\n");
+			}
+		}
+		
+		recv_flag = 0;
   }
 }
 
