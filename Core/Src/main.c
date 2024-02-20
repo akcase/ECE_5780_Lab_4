@@ -84,6 +84,28 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
+	
+	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+	
+	/* Setup PB10 as USART TX */
+	// Set to alternate function output mode
+	GPIOB->MODER &= ~(1<<20);
+	GPIOB->MODER |= (1<<21);
+	// Setup alternate function
+	GPIOB->AFR[1] &= ~(1<<11);
+	GPIOB->AFR[1] |= (1<<10);
+	GPIOB->AFR[1] &= ~(1<<9);
+	GPIOB->AFR[1] &= ~(1<<8);
+
+	/* Setup PB11 as USART RX */
+	// Set to alternate function output mode
+	GPIOB->MODER &= ~(1<<22);
+	GPIOB->MODER |= (1<<23);
+	// Setup alternate function
+	GPIOB->AFR[1] &= ~(1<<15);
+	GPIOB->AFR[1] |= (1<<14);
+	GPIOB->AFR[1] &= ~(1<<13);
+	GPIOB->AFR[1] &= ~(1<<12);
 
   /* USER CODE END 2 */
 
