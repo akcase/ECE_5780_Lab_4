@@ -56,37 +56,9 @@ void SystemClock_Config(void);
 
 /* USER CODE END 0 */
 
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
+/* Sets up pins PB10 and PB11 as USART3 RX/TX */
+void setup_usart(void)
 {
-  /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  /* USER CODE BEGIN 2 */
-	
-	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
-	
 	/* Setup PB10 as USART TX */
 	// Set to alternate function output mode
 	GPIOB->MODER &= ~(1<<20);
@@ -96,7 +68,7 @@ int main(void)
 	GPIOB->AFR[1] |= (1<<10);
 	GPIOB->AFR[1] &= ~(1<<9);
 	GPIOB->AFR[1] &= ~(1<<8);
-
+	
 	/* Setup PB11 as USART RX */
 	// Set to alternate function output mode
 	GPIOB->MODER &= ~(1<<22);
@@ -106,18 +78,154 @@ int main(void)
 	GPIOB->AFR[1] |= (1<<14);
 	GPIOB->AFR[1] &= ~(1<<13);
 	GPIOB->AFR[1] &= ~(1<<12);
+	
+	/* USART3 Setup */
+	// Enable transceiver and receiver
+	USART3->CR1 |= (1<<2);
+	USART3->CR1 |= (1<<3);
+	// Enable interrupt
+	USART3->CR1 |= (1<<5);
+	// Set baud rate to 9600 bits/sec
+	USART3->BRR = HAL_RCC_GetHCLKFreq() / 9600;
+	// Enable USART3
+	USART3->CR1 |= (1<<0);
+}
 
-  /* USER CODE END 2 */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+/* Sets up and initializes all 4 LEDs to low */
+void initialize_leds(void)
+{
+	/* Setup Red LED (PC6) */
+	// Set to general purpose output mode
+	GPIOC->MODER |= (1<<12);
+	GPIOC->MODER &= ~(1<<13);
+	// Set to push-pull mode
+	GPIOC->OTYPER &= ~(1<<6);
+	// Set to low speed
+	GPIOC->OSPEEDR &= ~(1<<12);
+	GPIOC->OSPEEDR &= ~(1<<13);
+	// Set no pull-up, no pull-down
+	GPIOC->PUPDR &= ~(1<<12);
+	GPIOC->PUPDR &= ~(1<<13);
+	// Initialize to low
+	GPIOC->ODR &= ~(1<<6);
+
+	/* Setup Blue LED (PC7) */
+	// Set to general purpose output mode
+	GPIOC->MODER |= (1<<14);
+	GPIOC->MODER &= ~(1<<15);
+	// Set to push-pull mode
+	GPIOC->OTYPER &= ~(1<<7);
+	// Set to low speed
+	GPIOC->OSPEEDR &= ~(1<<14);
+	GPIOC->OSPEEDR &= ~(1<<15);
+	// Set no pull-up, no pull-down
+	GPIOC->PUPDR &= ~(1<<14);
+	GPIOC->PUPDR &= ~(1<<15);
+	// Initialize to low
+	GPIOC->ODR &= ~(1<<7);
+	
+	/* Setup Orange LED (PC8) */
+	// Set to general purpose output mode
+	GPIOC->MODER |= (1<<16);
+	GPIOC->MODER &= ~(1<<17);
+	// Set to push-pull mode
+	GPIOC->OTYPER &= ~(1<<8);
+	// Set to low speed
+	GPIOC->OSPEEDR &= ~(1<<16);
+	GPIOC->OSPEEDR &= ~(1<<17);
+	// Set no pull-up, no pull-down
+	GPIOC->PUPDR &= ~(1<<16);
+	GPIOC->PUPDR &= ~(1<<17);
+	// Initialize to low
+	GPIOC->ODR &= ~(1<<8);
+	
+	/* Setup Green LED (PC9) */
+	// Set to general purpose output mode
+	GPIOC->MODER |= (1<<18);
+	GPIOC->MODER &= ~(1<<19);
+	// Set to push-pull mode
+	GPIOC->OTYPER &= ~(1<<9);
+	// Set to low speed
+	GPIOC->OSPEEDR &= ~(1<<18);
+	GPIOC->OSPEEDR &= ~(1<<19);
+	// Set no pull-up, no pull-down
+	GPIOC->PUPDR &= ~(1<<18);
+	GPIOC->PUPDR &= ~(1<<19);
+	// Initialize to low
+	GPIOC->ODR &= ~(1<<9);
+}
+
+
+
+/** 
+	* @brief Transmits a single character on the USART 
+  */
+void transmit_char(char c)
+{
+	while(1) 
+	{
+		if ((USART3->ISR & (1<<7)) == (1<<7))
+		{
+			break;
+		}
+	}
+	// Write char c to USART
+	USART3->TDR = c;
+}
+
+/** 
+	* @brief Transmits a string on the USART 
+  */
+void transmit_string(const char* str)
+{
+	while(*str != '\0')
+	{
+		transmit_char(*str);
+		str++;
+	}
+}
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  HAL_Init();
+  SystemClock_Config();
+	
+	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	RCC->APB1ENR |= RCC_APB1ENR_USART3EN;
+	
+	setup_usart();
+	initialize_leds();
+
   while (1)
   {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
+		while((USART3->ISR & (1<<5)) != (1<<5)) {}
+		
+		char received = USART3->RDR;
+			
+		switch (received)
+		{
+			case 'r':
+				GPIOC->ODR ^= (1<<6);
+				break;
+			case 'b':
+				GPIOC->ODR ^= (1<<7);
+				break;
+			case 'o':
+				GPIOC->ODR ^= (1<<8);
+				break;
+			case 'g':
+				GPIOC->ODR ^= (1<<9);
+				break;
+			default:
+				transmit_string("Error: Character does not correspond to an LED!\n");
+		}
   }
-  /* USER CODE END 3 */
 }
 
 /**
