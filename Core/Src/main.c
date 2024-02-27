@@ -19,8 +19,10 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
-static int recv_val = 0;
-static int recv_flag = 0;
+int recv_val = 0;
+int recv_flag = 0;
+int led = 0;
+int flag = 0;
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -192,9 +194,55 @@ void transmit_string(const char* str)
 
 void USART3_4_IRQHandler(void)
 {
-	recv_val = USART3->RDR;
-	recv_flag = 1;
-	GPIOC->ODR ^= (1<<9);
+	int cmd_text_printed = 0;
+	while (!(USART3->ISR & USART_ISR_RXNE)) {}
+	
+	recv_val = (USART3->RDR) &= 0xff;
+	
+	switch (recv_val)
+	{
+		case 'r':
+			transmit_string("Commanded LED: Red\n");
+			led = 6;
+			break;
+		case 'b':
+			transmit_string("Commanded LED: Blue\n");
+			led = 7;
+			break;
+		case 'o':
+			transmit_string("Commanded LED: Orange\n");
+			led = 8;
+			break;
+		case 'g':
+			transmit_string("Commanded LED: Green\n");
+			led = 9;
+			break;
+		case '0':
+			if (led != 0)
+			{
+				transmit_string("Commanded Action: Off\n");
+				GPIOC->ODR &= ~(1<<led);
+			}
+			break;
+		case '1':
+			if (led != 0)
+			{
+				transmit_string("Commanded Action: On\n");
+				GPIOC->ODR |= (1<<led);
+			}
+			break;
+		case '2':
+			if (led != 0)
+			{
+				transmit_string("Commanded Action: Toggle\n");
+				GPIOC->ODR ^= (1<<led);
+			}
+			break;
+		default:
+			transmit_string("Error: Command not valid!\n");
+			led = 0;
+	}
+	recv_flag = 1; // Turn received flag on
 }
 
 /**
@@ -210,74 +258,27 @@ int main(void)
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 	RCC->APB1ENR |= RCC_APB1ENR_USART3EN;
 	
-	setup_usart();
 	initialize_leds();
+	setup_usart();
 	
-	NVIC_EnableIRQ(USART3_4_IRQn);
+	NVIC_EnableIRQ(USART3_4_IRQn); // Enable USART3 interrupt
+	NVIC_SetPriority(USART3_4_IRQn, 2); // Set the priority of the USART3 interrupt to 2
 
-  while (1)
-  {
-		int cmd_text_printed = 0;
-		while (!recv_flag)
+  while (1) 
+	{
+		if(!flag) // Check if CMD? has already been sent
 		{
-			if (!cmd_text_printed)
-			{
-				transmit_string("CMD?\n");
-				cmd_text_printed = 1;
-			}
+			transmit_string("CMD?\n");
+			flag = 1;
 		}
-		char cmd_1 = recv_val & (1<<1);
-		char cmd_2 = recv_val & (1<<0);
-		
-		int led = 0;
-		
-		switch (cmd_1)
+		if (recv_flag) // Reset values if receive flag is on
 		{
-			case 'r':
-				transmit_string("Commanded LED: Red\n");
-				led = 6;
-				break;
-			case 'b':
-				transmit_string("Commanded LED: Blue\n");
-				led = 7;
-				break;
-			case 'o':
-				transmit_string("Commanded LED: Orange\n");
-				led = 8;
-				break;
-			case 'g':
-				transmit_string("Commanded LED: Green\n");
-				led = 9;
-				break;
-			default:
-				transmit_string("Error: First character must correspond to an LED!\n");
+			flag = 0;
+			recv_flag = 0;
+			recv_val = 0;
+			led = 0;
 		}
-		
-		if (led != 0)
-		{
-			switch (cmd_2)
-			{
-				case '0':
-					transmit_string("Commanded Action: Off\n");
-					GPIOC->ODR &= ~(1<<led);
-					break;
-				case '1':
-					transmit_string("Commanded Action: On\n");
-					GPIOC->ODR |= (1<<led);
-					break;
-				case '2':
-					transmit_string("Commanded Action: Toggle\n");
-					GPIOC->ODR ^= (1<<led);
-					HAL_Delay(500);
-					GPIOC->ODR ^= (1<<led);
-					break;
-				default:
-					transmit_string("Error: Second character must correspond to a command!\n");
-			}
-		}
-		
-		recv_flag = 0;
-  }
+	}
 }
 
 /**
